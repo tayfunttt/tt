@@ -3,14 +3,27 @@ const express = require("express");
 const webpush = require("web-push");
 const bodyParser = require("body-parser");
 const path = require("path");
+const cors = require("cors");
 
 const app = express();
+
+// === Middleware ===
 app.use(bodyParser.json());
+
+// 🔥 CORS ekledik: sadece parpar.it'ten gelen isteklere izin ver
+app.use(cors({
+  origin: ["https://parpar.it"], 
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
+
+// Statik dosyalar (gerekirse)
 app.use(express.static(path.join(__dirname)));
 
 const publicVapidKey = process.env.VAPID_PUBLIC;
 const privateVapidKey = process.env.VAPID_PRIVATE;
 
+// VAPID key ayarı
 webpush.setVapidDetails("mailto:test@test.com", publicVapidKey, privateVapidKey);
 
 let subscription = null; // sadece tek abonelik için
@@ -19,7 +32,6 @@ let subscription = null; // sadece tek abonelik için
 app.post("/subscribe", (req, res) => {
   console.log("📥 /subscribe çağrısı geldi. Gelen body:", req.body);
 
-  // Eğer subscription iç içe gelmişse çıkar
   subscription = req.body.subscription || req.body;
 
   if (!subscription || !subscription.endpoint) {
@@ -59,5 +71,6 @@ app.post("/send", (req, res) => {
     });
 });
 
-const port = 3000;
+// === Sunucu ===
+const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`🚀 Sunucu http://localhost:${port} adresinde çalışıyor`));
