@@ -1,5 +1,11 @@
 const express = require("express");
 const cors = require("cors");
+const webpush = require("web-push");
+const bodyParser = require("body-parser");
+const path = require("path");
+require("dotenv").config();
+
+const app = express();
 
 // sadece parpar.it ve localhost izinli
 app.use(cors({
@@ -7,17 +13,11 @@ app.use(cors({
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"]
 }));
-const webpush = require("web-push");
-const bodyParser = require("body-parser");
-const path = require("path");
-require("dotenv").config();
 
-const app = express();
-app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
-// VAPID keyleri .env'den oku
+// VAPID keyleri .env’den oku
 const publicVapidKey = process.env.VAPID_PUBLIC;
 const privateVapidKey = process.env.VAPID_PRIVATE;
 
@@ -43,12 +43,12 @@ app.post("/send", async (req, res) => {
   }
   try {
     await webpush.sendNotification(subscription, JSON.stringify({ message }));
-    res.status(200).json({ success: true });
+    res.json({ success: true });
   } catch (err) {
-    console.error("Push error:", err);
-    res.status(500).json({ error: "Push failed" });
+    console.error(err);
+    res.status(500).json({ error: "Push send error" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
