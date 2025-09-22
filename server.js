@@ -1,74 +1,49 @@
+require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
 const webpush = require("web-push");
 const bodyParser = require("body-parser");
 const path = require("path");
-require("dotenv").config();
 
 const app = express();
-
-// sadece parpar.it ve localhost izinli
-app.use(cors({
-  origin: ["https://parpar.it", "http://localhost:3000"],
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type"]
-}));
-
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
-// VAPID keyleri .env'den oku
 const publicVapidKey = process.env.VAPID_PUBLIC;
 const privateVapidKey = process.env.VAPID_PRIVATE;
 
-webpush.setVapidDetails(
-  "mailto:test@test.com",
-  publicVapidKey,
-  privateVapidKey
-);
+webpush.setVapidDetails("mailto:test@test.com", publicVapidKey, privateVapidKey);
 
-// ---- Bellekte abone saklama ----
-let subscription = null;
+let subscription; // sadece tek abonelik için
 
-// Abonelik kaydı
 app.post("/subscribe", (req, res) => {
-  console.log("Gelen /subscribe:", req.body);
+  // Eğer subscription iç içe gelmişse çıkar
+  subscription = req.body.subscription || req.body;
 
-  // subscription nesnesi içinden çıkar
-  if (req.body.subscription) {
-    subscription = req.body.subscription;
-    console.log("Abonelik kaydedildi ✅");
-    res.status(201).json({ ok: true });
-  } else {
-    console.log("HATALI abonelik isteği ❌");
-    res.status(400).json({ error: "No subscription in body" });
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: "Geçersiz subscription" });
   }
+
+  res.status(201).json({ ok: true });
 });
 
-// Push gönderme
-app.post("/send", async (req, res) => {
-  console.log("Gelen /send:", req.body);
-
+app.post("/send", (req, res) => {
   if (!subscription) {
-    console.log("Abonelik yok ❌");
-    return res.status(400).json({ error: "No subscription found" });
+    return res.status(400).json({ error: "Abonelik yok" });
   }
 
-  const { title, body, url } = req.body;
+  const payload = JSON.stringify({
+    title: req.body.title || "Parpar.it Bildirim",
+    body: req.body.body || "Web Push çalışıyor!",
+    url: req.body.url || "https://parpar.it"
+  });
 
-  try {
-    await webpush.sendNotification(
-      subscription,
-      JSON.stringify({ title, body, url })
-    );
-    console.log("Push gönderildi ✅");
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Push gönderim hatası ❌", err);
-    res.status(500).json({ error: "Push failed", details: err.message });
-  }
+  webpush.sendNotification(subscription, payload)
+    .then(() => res.status(200).json({ success: true }))
+    .catch(err => {
+      console.error("Push error:", err);
+      res.status(500).json({ error: "Push gönderilemedi" });
+    });
 });
 
-// Sunucu başlat
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server ${PORT} portunda çalışıyor...`));
+const port = 3000;
+app.listen(port, () => console.log(`Sunucu http://localhost:${port} adresinde çalışıyor`));
