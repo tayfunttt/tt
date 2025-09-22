@@ -37,18 +37,22 @@ app.post("/subscribe", (req, res) => {
 
 // push gönder
 app.post("/send", async (req, res) => {
-  const { message } = req.body;
+  const { title, body, url } = req.body;
   if (!subscription) {
     return res.status(400).json({ error: "No subscription found" });
   }
   try {
-    await webpush.sendNotification(subscription, JSON.stringify({ message }));
-    res.json({ success: true });
+    await webpush.sendNotification(
+      subscription,
+      JSON.stringify({ title, body, url })
+    );
+    res.status(201).json({ message: "Push sent" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Push send error" });
+    console.error("Push send error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
