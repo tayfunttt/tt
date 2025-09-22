@@ -9,8 +9,6 @@ const app = express();
 
 // === Middleware ===
 app.use(bodyParser.json());
-
-// 🔥 CORS ekledik: test için herkese aç (istersen sadece parpar.it yapabilirsin)
 app.use(cors({
   origin: "*", 
   methods: ["GET", "POST", "OPTIONS"],
@@ -32,18 +30,17 @@ let subscription = null; // sadece tek abonelik için
 app.post("/subscribe", (req, res) => {
   console.log("📥 /subscribe çağrısı geldi. Gelen body:", req.body);
 
-  // Gelen body farklı formatlarda olabilir
-  if (req.body.subscription && req.body.subscription.endpoint) {
-    subscription = req.body.subscription;
-  } else if (req.body.endpoint) {
-    subscription = req.body;
+  // Body subscription içeriyor mu kontrol et
+  const sub = req.body.subscription || req.body;
+
+  if (sub && sub.endpoint && sub.endpoint.includes("fcm.googleapis.com")) {
+    subscription = sub;
+    console.log("✅ Subscription kaydedildi:", subscription.endpoint);
+    return res.status(201).json({ ok: true });
   } else {
     console.error("❌ Geçersiz subscription:", req.body);
     return res.status(400).json({ error: "Geçersiz subscription" });
   }
-
-  console.log("✅ Subscription kaydedildi:", subscription.endpoint);
-  res.status(201).json({ ok: true });
 });
 
 // === Send endpoint ===
