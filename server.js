@@ -1,5 +1,12 @@
 const express = require("express");
 const cors = require("cors");
+
+// sadece parpar.it ve localhost izinli
+app.use(cors({
+  origin: ["https://parpar.it", "http://localhost:3000"],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
 const webpush = require("web-push");
 const bodyParser = require("body-parser");
 const path = require("path");
