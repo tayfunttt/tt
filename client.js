@@ -5,7 +5,7 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.error("SW hatası:", err));
 }
 
-const publicVapidKey = "<BURAYA_VAPID_PUBLIC_KEY_GELECEK>"; // .env'deki PUBLIC key ile aynı olacak
+const publicVapidKey = "BBQ77VKt4IQRPpEc6tog47ah70q5Z8ey2wp4nJrQy9gDoo2SRaGK013BKcN19yrJv4M-6ZsivcX6p0T5dpYcrHA";
 
 document.getElementById("subscribe").addEventListener("click", async () => {
   const registration = await navigator.serviceWorker.ready;
