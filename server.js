@@ -27,36 +27,48 @@ webpush.setVapidDetails(
   privateVapidKey
 );
 
-// ---- Bellekte abone saklama (şimdilik tek abone için) ----
+// ---- Bellekte abone saklama ----
 let subscription = null;
 
 // Abonelik kaydı
 app.post("/subscribe", (req, res) => {
-  console.log("Yeni abone kaydı:", req.body);
-  subscription = req.body.subscription;   // sadece subscription nesnesini kaydet
-  res.status(201).json({ ok: true });
+  console.log("Gelen /subscribe:", req.body);
+
+  // subscription nesnesi içinden çıkar
+  if (req.body.subscription) {
+    subscription = req.body.subscription;
+    console.log("Abonelik kaydedildi ✅");
+    res.status(201).json({ ok: true });
+  } else {
+    console.log("HATALI abonelik isteği ❌");
+    res.status(400).json({ error: "No subscription in body" });
+  }
 });
 
 // Push gönderme
 app.post("/send", async (req, res) => {
-  const { title, body, url } = req.body;
+  console.log("Gelen /send:", req.body);
+
   if (!subscription) {
+    console.log("Abonelik yok ❌");
     return res.status(400).json({ error: "No subscription found" });
   }
+
+  const { title, body, url } = req.body;
 
   try {
     await webpush.sendNotification(
       subscription,
       JSON.stringify({ title, body, url })
     );
-    console.log("Push gönderildi:", title);
+    console.log("Push gönderildi ✅");
     res.json({ ok: true });
   } catch (err) {
-    console.error("Push gönderim hatası:", err);
-    res.status(500).json({ error: "Push failed" });
+    console.error("Push gönderim hatası ❌", err);
+    res.status(500).json({ error: "Push failed", details: err.message });
   }
 });
 
-// Sunucuyu çalıştır
+// Sunucu başlat
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server ${PORT} portunda çalışıyor...`));
