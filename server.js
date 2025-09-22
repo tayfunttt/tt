@@ -6,63 +6,57 @@ const path = require("path");
 const cors = require("cors");
 
 const app = express();
-
-// === Middleware ===
 app.use(bodyParser.json());
 app.use(cors({
-  origin: "*", 
+  origin: "*",
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"]
 }));
-
-// Statik dosyalar (gerekirse)
 app.use(express.static(path.join(__dirname)));
 
 const publicVapidKey = process.env.VAPID_PUBLIC;
 const privateVapidKey = process.env.VAPID_PRIVATE;
-
-// VAPID key ayarı
 webpush.setVapidDetails("mailto:test@test.com", publicVapidKey, privateVapidKey);
 
-let subscription = null; // sadece tek abonelik için
+// 🔥 Oda bazlı subscription listesi
+let subscriptions = {}; 
+// örnek: { "ODA1": subscriptionObj, "ODA2": subscriptionObj }
 
-// === Subscribe endpoint ===
 app.post("/subscribe", (req, res) => {
-  console.log("📥 /subscribe çağrısı geldi. Gelen body:", req.body);
+  console.log("📥 /subscribe çağrısı:", req.body);
 
-  // Body subscription içeriyor mu kontrol et
-  const sub = req.body.subscription || req.body;
+  const room = req.body.room;
+  const sub = req.body.subscription;
 
-  if (sub && sub.endpoint && sub.endpoint.includes("fcm.googleapis.com")) {
-    subscription = sub;
-    console.log("✅ Subscription kaydedildi:", subscription.endpoint);
-    return res.status(201).json({ ok: true });
-  } else {
-    console.error("❌ Geçersiz subscription:", req.body);
+  if (!room || !sub || !sub.endpoint) {
     return res.status(400).json({ error: "Geçersiz subscription" });
   }
+
+  subscriptions[room] = sub; // odayı ID olarak kaydet
+  console.log(`✅ Subscription kaydedildi → Oda: ${room}, Endpoint: ${sub.endpoint}`);
+
+  res.status(201).json({ ok: true });
 });
 
-// === Send endpoint ===
 app.post("/send", (req, res) => {
-  console.log("📤 /send çağrısı geldi. Body:", req.body);
+  console.log("📤 /send çağrısı:", req.body);
 
-  if (!subscription || !subscription.endpoint) {
-    console.error("❌ Henüz subscription yok.");
-    return res.status(400).json({ error: "Abonelik yok" });
+  const toRoom = req.body.toRoom; // hangi oda ID'ye gidecek
+  const sub = subscriptions[toRoom];
+
+  if (!sub) {
+    return res.status(400).json({ error: "Bu oda için abonelik bulunamadı" });
   }
 
   const payload = JSON.stringify({
     title: req.body.title || "Parpar.it Bildirim",
-    body: req.body.body || "Web Push çalışıyor!",
+    body: req.body.body || "Yeni mesajınız var!",
     url: req.body.url || "https://parpar.it"
   });
 
-  console.log("➡️ Push gönderiliyor. Payload:", payload);
-
-  webpush.sendNotification(subscription, payload)
+  webpush.sendNotification(sub, payload)
     .then(() => {
-      console.log("✅ Push bildirimi başarıyla gönderildi.");
+      console.log(`✅ Push ${toRoom} odasına gönderildi.`);
       res.status(200).json({ success: true });
     })
     .catch(err => {
@@ -71,6 +65,5 @@ app.post("/send", (req, res) => {
     });
 });
 
-// === Sunucu ===
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`🚀 Sunucu http://localhost:${port} adresinde çalışıyor`));
