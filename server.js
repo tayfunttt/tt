@@ -10,10 +10,10 @@ const app = express();
 // === Middleware ===
 app.use(bodyParser.json());
 
-// 🔥 CORS ekledik: sadece parpar.it'ten gelen isteklere izin ver
+// 🔥 CORS ekledik: test için herkese aç (istersen sadece parpar.it yapabilirsin)
 app.use(cors({
-  origin: ["https://parpar.it"], 
-  methods: ["GET", "POST"],
+  origin: "*", 
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"]
 }));
 
@@ -32,10 +32,13 @@ let subscription = null; // sadece tek abonelik için
 app.post("/subscribe", (req, res) => {
   console.log("📥 /subscribe çağrısı geldi. Gelen body:", req.body);
 
-  subscription = req.body.subscription || req.body;
-
-  if (!subscription || !subscription.endpoint) {
-    console.error("❌ Geçersiz subscription:", subscription);
+  // Gelen body farklı formatlarda olabilir
+  if (req.body.subscription && req.body.subscription.endpoint) {
+    subscription = req.body.subscription;
+  } else if (req.body.endpoint) {
+    subscription = req.body;
+  } else {
+    console.error("❌ Geçersiz subscription:", req.body);
     return res.status(400).json({ error: "Geçersiz subscription" });
   }
 
@@ -47,7 +50,7 @@ app.post("/subscribe", (req, res) => {
 app.post("/send", (req, res) => {
   console.log("📤 /send çağrısı geldi. Body:", req.body);
 
-  if (!subscription) {
+  if (!subscription || !subscription.endpoint) {
     console.error("❌ Henüz subscription yok.");
     return res.status(400).json({ error: "Abonelik yok" });
   }
