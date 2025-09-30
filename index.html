@@ -1,15 +1,54 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="tr">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Web Push Test</title>
+  <title>ParPar Push Chat</title>
 </head>
 <body>
-  <h1>Web Push Bildirim Testi</h1>
-  <button id="subscribe">Abone Ol</button>
-  <button id="notify">Bildirim Gönder</button>
+  <h2>Push Chat</h2>
+  <textarea id="msg" placeholder="Mesaj yaz..." rows="3" cols="40"></textarea><br>
+  <button id="send">Gönder</button>
 
-  <script src="client.js"></script>
+  <script>
+    const PUBLIC_VAPID_KEY = "BG4lyEIPRLqGRgv9-UuLlyoavfXO2ESAlK-K1Cca8ERu30XWR-DnFjdR3G4UW7wxvngm-7-OfxNZVlIdxTYJ9m8";
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const rawData = window.atob(base64);
+      return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+    }
+
+    async function init() {
+      // Service worker kaydı
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      console.log("Service Worker registered:", reg);
+
+      // Push aboneliği
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
+      });
+
+      await fetch("/subscribe", {
+        method: "POST",
+        body: JSON.stringify(sub),
+        headers: { "Content-Type": "application/json" },
+      });
+      console.log("Subscribed!");
+    }
+
+    init();
+
+    document.getElementById("send").onclick = async () => {
+      const msg = document.getElementById("msg").value;
+      await fetch("/message", {
+        method: "POST",
+        body: JSON.stringify({ title: "Yeni Mesaj", body: msg }),
+        headers: { "Content-Type": "application/json" },
+      });
+      document.getElementById("msg").value = "";
+    };
+  </script>
 </body>
 </html>

@@ -1,69 +1,57 @@
-require("dotenv").config();
-const express = require("express");
-const webpush = require("web-push");
-const bodyParser = require("body-parser");
-const path = require("path");
-const cors = require("cors");
+﻿const express = require('express');
+const bodyParser = require('body-parser');
+const path = require('path');
+const webpush = require('web-push');
 
 const app = express();
 app.use(bodyParser.json());
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
-}));
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, 'public')));
 
-const publicVapidKey = process.env.VAPID_PUBLIC;
-const privateVapidKey = process.env.VAPID_PRIVATE;
-webpush.setVapidDetails("mailto:test@test.com", publicVapidKey, privateVapidKey);
+// 🔑 Senin VAPID anahtarların
+const publicKey = "BG4lyEIPRLqGRgv9-UuLlyoavfXO2ESAlK-K1Cca8ERu30XWR-DnFjdR3G4UW7wxvngm-7-OfxNZVlIdxTYJ9m8";
+const privateKey = "wlZqOiKl-ogKzs1rNrHs2zSb9yZLZ3Sf3l7h1jKsC30";
 
-// 🔥 Oda bazlı subscription listesi
-let subscriptions = {}; 
-// örnek: { "ODA1": subscriptionObj, "ODA2": subscriptionObj }
+// Web Push ayarı
+webpush.setVapidDetails(
+  'mailto:seninmail@domain.com', // buraya mail adresini yaz
+  publicKey,
+  privateKey
+);
 
+let subscriptions = [];
+
+// 👉 Tarayıcıya public key göndermek için endpoint
+app.get("/vapidPublicKey", (req, res) => {
+  res.send(publicKey);
+});
+
+// 👉 Abonelik kaydı
 app.post("/subscribe", (req, res) => {
-  console.log("📥 /subscribe çağrısı:", req.body);
-
-  const room = req.body.room;
-  const sub = req.body.subscription;
-
-  if (!room || !sub || !sub.endpoint) {
-    return res.status(400).json({ error: "Geçersiz subscription" });
-  }
-
-  subscriptions[room] = sub; // odayı ID olarak kaydet
-  console.log(`✅ Subscription kaydedildi → Oda: ${room}, Endpoint: ${sub.endpoint}`);
-
+  const subscription = req.body;
+  subscriptions.push(subscription);
   res.status(201).json({ ok: true });
 });
 
-app.post("/send", (req, res) => {
-  console.log("📤 /send çağrısı:", req.body);
+// 👉 Mesaj gönderme
+app.post("/message", async (req, res) => {
+  const { title, body } = req.body;
+  const payload = JSON.stringify({ title, body });
 
-  const toRoom = req.body.toRoom; // hangi oda ID'ye gidecek
-  const sub = subscriptions[toRoom];
-
-  if (!sub) {
-    return res.status(400).json({ error: "Bu oda için abonelik bulunamadı" });
-  }
-
-  const payload = JSON.stringify({
-    title: req.body.title || "Parpar.it Bildirim",
-    body: req.body.body || "Yeni mesajınız var!",
-    url: req.body.url || "https://parpar.it"
-  });
-
-  webpush.sendNotification(sub, payload)
-    .then(() => {
-      console.log(`✅ Push ${toRoom} odasına gönderildi.`);
-      res.status(200).json({ success: true });
+  const results = await Promise.all(
+    subscriptions.map(async (sub, idx) => {
+      try {
+        await webpush.sendNotification(sub, payload);
+        return { idx, ok: true };
+      } catch (err) {
+        subscriptions.splice(idx, 1);
+        return { idx, ok: false, error: err.message };
+      }
     })
-    .catch(err => {
-      console.error("❌ Push error:", err);
-      res.status(500).json({ error: "Push gönderilemedi" });
-    });
+  );
+
+  res.json({ sent: results });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`🚀 Sunucu http://localhost:${port} adresinde çalışıyor`));
+// Sunucu başlat
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

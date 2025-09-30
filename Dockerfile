@@ -1,12 +1,20 @@
+# Node.js taban imajı
 FROM node:18
 
-WORKDIR /usr/src/app
+# Çalışma klasörü
+WORKDIR /app
 
+# package.json ve package-lock.json kopyala
 COPY package*.json ./
+
+# bağımlılıkları yükle
 RUN npm install --omit=dev
 
+# tüm dosyaları kopyala
 COPY . .
 
-ENV PORT=8080
+# Port (Cloud Run default: 8080)
+EXPOSE 8080
 
-CMD ["node", "server.js"]
+# server başlat
+CMD ["npm", "start"]
